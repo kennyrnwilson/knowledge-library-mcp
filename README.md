@@ -29,3 +29,15 @@ See `src/knowledge_library_mcp/server.py`. Spec: `kennyrnwilson/knowledge-librar
 ## Explicit-save model
 
 Write tools (`create_note`, `update_note`, `append_fleeting`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
+
+## Deployment
+
+This directory is the source of truth. On every push to `main` that touches
+`mcp-server/`, `.github/workflows/sync-to-public.yml` mirrors it into the public
+repo `kennyrnwilson/knowledge-library-mcp`. A push to that public repo runs its
+`deploy-vm.yml` on the Mac Mini self-hosted runner, which pulls, runs `uv sync`,
+and restarts the `knowledge-library-mcp` systemd unit inside the ingress VM
+(port 5103, behind `gateway.kennyrnwilson.com/mcp/knowledge`).
+
+The knowledge content itself never leaves the private repo — only this
+`mcp-server/` subtree is mirrored.
