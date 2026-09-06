@@ -1,0 +1,19 @@
+name: Deploy to ingress VM
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [deploy-knowledge-library-mcp]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, mac-mini]
+    steps:
+      - name: Pull + restart on ingress VM
+        run: |
+          orb run -m ingress -u root bash -c "
+            cd /opt/knowledge-library-mcp && git pull &&
+            uv sync &&
+            systemctl restart knowledge-library-mcp
+          "
