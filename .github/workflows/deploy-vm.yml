@@ -10,6 +10,19 @@ jobs:
   deploy:
     runs-on: [self-hosted, mac-mini]
     steps:
+      - name: Wait for OrbStack
+        # Any `orb` command starts OrbStack. Only the Mini's LaunchAgent
+        # com.kenne.orbstack-start may start it, after the encrypted
+        # /Volumes/orbstore unlocks. Wait for it; never start it from here.
+        # See personal-portal docs/system-architecture/external-disk.md.
+        run: |
+          for _ in $(seq 1 72); do
+            pgrep -xq OrbStack && exit 0
+            sleep 5
+          done
+          echo "::error::OrbStack not running after 6 min. Not starting it: /Volumes/orbstore may be missing. See ~/Library/Logs/orbstack-start.log on the Mini."
+          exit 1
+
       - name: Pull + restart on ingress VM
         run: |
           orb run -m ingress -u root bash -c "
