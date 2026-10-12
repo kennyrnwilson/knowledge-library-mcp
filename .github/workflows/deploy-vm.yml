@@ -23,10 +23,11 @@ jobs:
           echo "::error::OrbStack not running after 6 min. Not starting it: /Volumes/orbstore may be missing. See ~/Library/Logs/orbstack-start.log on the Mini."
           exit 1
 
-      - name: Pull + restart on ingress VM
+      - name: Install on ingress VM
+        # The install script in the Mini's personal-portal checkout is the one
+        # way to deploy this server, by hand or from CI. It installs Python
+        # dependencies as the service account, pinned by uv.lock. See
+        # personal-portal docs/system-architecture/ingress-vm-architecture.md.
         run: |
-          orb run -m ingress -u root bash -c "
-            cd /opt/knowledge-library-mcp && git pull &&
-            uv sync &&
-            systemctl restart knowledge-library-mcp
-          "
+          orb run -m ingress -u root bash -s -- install \
+            < "$HOME/code/personal-portal/deploy/ingress-vm/knowledge-library-mcp.sh"
