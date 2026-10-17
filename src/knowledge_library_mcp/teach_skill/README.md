@@ -15,7 +15,7 @@ The upstream files (`SKILL.md` and the `*-FORMAT.md` files) are copied without
 change. [`CHAT-PREAMBLE.md`](./CHAT-PREAMBLE.md) is ours: it adapts the skill to
 a workspace reached through MCP tools instead of a working directory.
 
-To refresh the upstream files, run from `mcp-server/`:
+To refresh the upstream files, run from the repository root:
 
 ```bash
 uv run python scripts/refresh_teach_skill.py <commit-sha>

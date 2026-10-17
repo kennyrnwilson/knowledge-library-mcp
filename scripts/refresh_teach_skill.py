@@ -1,6 +1,6 @@
 """Refresh the vendored `teach` skill from mattpocock/skills at a given commit.
 
-Usage, from mcp-server/:  uv run python scripts/refresh_teach_skill.py <commit-sha>
+Usage, from the repository root:  uv run python scripts/refresh_teach_skill.py <commit-sha>
 
 Overwrites the upstream files in src/knowledge_library_mcp/teach_skill/. It does
 not touch CHAT-PREAMBLE.md or README.md; update the commit in README.md by hand.
