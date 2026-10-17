@@ -140,3 +140,25 @@ async def test_save_changes(git_server, temp_git_library):
     assert res["committed"] is True
     assert res["pushed"] is True
     assert res["commit_sha"]
+
+
+@pytest.mark.asyncio
+async def test_teach_tools_round_trip(server, temp_library):
+    start = _extract(await server.call_tool("teach_start", {"project": "sample-project"}))
+    assert start["exists"] is False and "## Teaching Workspace" in start["instructions"]
+
+    written = _extract(await server.call_tool("write_teach_file", {
+        "project": "sample-project",
+        "path": "lessons/0001-hello.html",
+        "content": "<html><head><title>Hello</title></head><body><p>Hi there</p></body></html>",
+    }))
+    assert written["url"] == "/knowledge/projects/sample-project/teach/lessons/0001-hello.html"
+
+    await server.call_tool("edit_teach_file", {
+        "project": "sample-project", "path": "lessons/0001-hello.html",
+        "old": "Hi there", "new": "Hello again",
+    })
+    lessons = _extract(await server.call_tool("list_lessons", {"project": "sample-project"}))
+    assert [lesson["title"] for lesson in lessons] == ["Hello"]
+    text = _extract(await server.call_tool("get_lesson", {"path": written["path"]}))
+    assert "Hello again" in text

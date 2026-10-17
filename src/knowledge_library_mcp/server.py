@@ -18,6 +18,13 @@ from knowledge_library_mcp.notes import (
     list_projects as _list_projects,
 )
 from knowledge_library_mcp.search import search_notes as _search
+from knowledge_library_mcp.teach import (
+    edit_teach_file as _edit_teach_file,
+    get_lesson as _get_lesson,
+    list_lessons as _list_lessons,
+    teach_start as _teach_start,
+    write_teach_file as _write_teach_file,
+)
 from knowledge_library_mcp.writer import (
     NoteAlreadyExists,
     NoteNotFoundForUpdate,
@@ -106,6 +113,46 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     def append_fleeting(content: str) -> str:
         """Append a timestamped block to today's `01-fleeting-notes/YYYY-MM-DD.md`. Lowest-friction capture."""
         return _append_fleeting(library_root, content)
+
+    # ---- Teaching tools (the `teach` skill over MCP; filesystem only) ----------
+
+    @mcp.tool()
+    def teach_start(project: str) -> dict:
+        """Start or continue teaching the user a subject, in `05-projects/<project>/teach/`.
+
+        Call this first whenever the user asks to be taught, or for the next lesson.
+        Returns the `teach` skill's instructions (follow them) plus the workspace's
+        mission, notes, learning records, assets, and the lessons so far.
+        """
+        return _teach_start(library_root, project)
+
+    @mcp.tool()
+    def list_lessons(project: str) -> list[dict]:
+        """List a project's lessons: number, title, library path and published URL."""
+        return _list_lessons(library_root, project)
+
+    @mcp.tool()
+    def get_lesson(path: str) -> str:
+        """Return the readable text of a lesson or reference page (no markup), by library path."""
+        return _get_lesson(library_root, path)
+
+    @mcp.tool()
+    def write_teach_file(project: str, path: str, content: str) -> dict:
+        """Create or replace a file in a project's teaching workspace. Does not commit.
+
+        path is relative to the workspace: MISSION.md, RESOURCES.md, NOTES.md, or a file
+        under lessons/, reference/, learning-records/ or assets/. Allowed types: .html,
+        .css, .js, .svg, .md. Returns the library path and the published URL.
+        """
+        return _write_teach_file(library_root, project, path, content)
+
+    @mcp.tool()
+    def edit_teach_file(project: str, path: str, old: str, new: str) -> dict:
+        """Replace one exact, unique piece of text in a workspace file. Does not commit.
+
+        Prefer this to write_teach_file for small fixes: it avoids resending the whole file.
+        """
+        return _edit_teach_file(library_root, project, path, old, new)
 
     # ---- Git tools (explicit-save model) ---------------------------------------
 

@@ -10,6 +10,7 @@ import traceback
 from typing import Any
 
 from knowledge_library_mcp.server import build_server
+from knowledge_library_mcp.teach import load_instructions
 
 
 def _coerce(call_tool_result: Any) -> Any:
@@ -47,6 +48,9 @@ def _selftest() -> int:
             await server.call_tool("search_notes", {"query": "the"})
             await server.call_tool("list_permanent_notes", {"area": areas[0]})
             await server.call_tool("list_projects", {})
+            if "## Teaching Workspace" not in load_instructions():
+                print("selftest FAIL: teach_skill/SKILL.md did not load", file=sys.stderr)
+                return 1
             print(f"selftest OK: {len(areas)} areas; first area={areas[0]!r}")
             return 0
         except Exception:

@@ -26,9 +26,20 @@ The server resolves the library root by:
 
 See `src/knowledge_library_mcp/server.py`. Spec: `kennyrnwilson/knowledge-library` → `docs/superpowers/specs/2026-05-08-mcp-knowledge-platform-design.md` § 6.2.
 
+## Teaching tools
+
+`teach_start`, `list_lessons`, `get_lesson`, `write_teach_file` and `edit_teach_file`
+let a chat with no skills of its own (claude.ai, for example) run Matt Pocock's
+`teach` skill. The workspace is `05-projects/<project>/teach/`; the project must
+already have a `README.md`. `teach_start` returns the skill's instructions, from
+the vendored copy in [`src/knowledge_library_mcp/teach_skill/`](./src/knowledge_library_mcp/teach_skill/README.md),
+plus the workspace's state. The write tools accept `.html`, `.css`, `.js`, `.svg`
+and `.md` files inside the workspace only, and like the other write tools they
+never commit.
+
 ## Explicit-save model
 
-Write tools (`create_note`, `update_note`, `append_fleeting`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
+Write tools (`create_note`, `update_note`, `append_fleeting`, `write_teach_file`, `edit_teach_file`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
 
 ## Deployment
 
