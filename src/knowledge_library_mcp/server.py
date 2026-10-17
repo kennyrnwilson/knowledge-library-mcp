@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 
 from knowledge_library_mcp.areas import AREAS
 from knowledge_library_mcp.git_ops import list_pending_changes as _list_pending
+from knowledge_library_mcp.git_ops import refresh as _refresh
 from knowledge_library_mcp.git_ops import save_changes as _save_changes
 from knowledge_library_mcp.notes import (
     NoteNotFound,
@@ -55,6 +56,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def search_notes(query: str, area: str | None = None) -> list[dict]:
         """Full-text search across the library. Optional `area` scopes to permanent/guidance for that area."""
+        _refresh(library_root)
         return [
             {"path": h.path, "line": h.line_number, "text": h.line}
             for h in _search(library_root, query, area=area)
@@ -63,6 +65,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def get_note(path: str) -> str:
         """Return the markdown content of a note by relative path."""
+        _refresh(library_root)
         try:
             return _get_note(library_root, path)
         except NoteNotFound as e:
@@ -71,11 +74,13 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def list_permanent_notes(area: str) -> list[dict]:
         """List all permanent notes within one area."""
+        _refresh(library_root)
         return _list_permanent(library_root, area)
 
     @mcp.tool()
     def get_guidance(topic: str) -> str:
         """Return the markdown of `04-guidance/<area>/<topic>.md` for the first matching area."""
+        _refresh(library_root)
         try:
             return _get_guidance(library_root, topic)
         except NoteNotFound as e:
@@ -84,6 +89,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def list_projects() -> list[dict]:
         """List active projects (directories under `05-projects/` containing a README.md)."""
+        _refresh(library_root)
         return _list_projects(library_root)
 
     # ---- Write tools (filesystem only — no git side-effects) -------------------
@@ -95,6 +101,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         kind: fleeting | literature | permanent | guidance | project
         area_or_path: required area name for permanent/guidance; optional sub-path for others.
         """
+        _refresh(library_root)
         try:
             return _create_note(library_root, kind=kind, area_or_path=area_or_path,
                                 title=title, content=content)
@@ -104,6 +111,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def update_note(path: str, content: str) -> str:
         """Overwrite an existing note. Refuses if path doesn't already exist."""
+        _refresh(library_root)
         try:
             return _update_note(library_root, path, content)
         except NoteNotFoundForUpdate as e:
@@ -112,6 +120,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def append_fleeting(content: str) -> str:
         """Append a timestamped block to today's `01-fleeting-notes/YYYY-MM-DD.md`. Lowest-friction capture."""
+        _refresh(library_root)
         return _append_fleeting(library_root, content)
 
     # ---- Teaching tools (the `teach` skill over MCP; filesystem only) ----------
@@ -124,16 +133,19 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         Returns the `teach` skill's instructions (follow them) plus the workspace's
         mission, notes, learning records, assets, and the lessons so far.
         """
+        _refresh(library_root)
         return _teach_start(library_root, project)
 
     @mcp.tool()
     def list_lessons(project: str) -> list[dict]:
         """List a project's lessons: number, title, library path and published URL."""
+        _refresh(library_root)
         return _list_lessons(library_root, project)
 
     @mcp.tool()
     def get_lesson(path: str) -> str:
         """Return the readable text of a lesson or reference page (no markup), by library path."""
+        _refresh(library_root)
         return _get_lesson(library_root, path)
 
     @mcp.tool()
@@ -144,6 +156,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         under lessons/, reference/, learning-records/ or assets/. Allowed types: .html,
         .css, .js, .svg, .md. Returns the library path and the published URL.
         """
+        _refresh(library_root)
         return _write_teach_file(library_root, project, path, content)
 
     @mcp.tool()
@@ -152,6 +165,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
 
         Prefer this to write_teach_file for small fixes: it avoids resending the whole file.
         """
+        _refresh(library_root)
         return _edit_teach_file(library_root, project, path, old, new)
 
     # ---- Git tools (explicit-save model) ---------------------------------------
@@ -159,6 +173,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     @mcp.tool()
     def list_pending_changes() -> list[dict]:
         """Return uncommitted changes in the knowledge-library (parsed git status)."""
+        _refresh(library_root)
         return _list_pending(library_root)
 
     @mcp.tool()

@@ -41,6 +41,20 @@ never commit.
 
 Write tools (`create_note`, `update_note`, `append_fleeting`, `write_teach_file`, `edit_teach_file`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
 
+## Staying in step with `main`
+
+The server's clone is only pulled when it is installed, so on its own it falls
+behind every push made elsewhere. Two things keep it current, and both act only
+when `main` is checked out:
+
+- **Before each tool call**, `refresh` runs `git pull --ff-only origin main`, at
+  most once every 30 seconds, with a 15-second timeout. A failed pull is not an
+  error: the call goes ahead on what is on disk.
+- **`save_changes`** commits, fetches, rebases onto `origin/main`, then pushes. A
+  conflict aborts the rebase and leaves the commit local, with an error that
+  says so. A commit stranded by an earlier failed push goes out with the next
+  `save_changes`, even when there is nothing new to commit.
+
 ## Deployment
 
 This directory is the source of truth. On every push to `main` that touches

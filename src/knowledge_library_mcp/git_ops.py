@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -50,23 +51,89 @@ def _autogenerate_message(pending: list[dict]) -> str:
     return f"save: {', '.join(head)}{suffix}"
 
 
+# Seconds between refreshes. Every tool call refreshes, so this keeps a burst of
+# calls in one chat turn to a single fetch.
+REFRESH_INTERVAL = 30.0
+# A slow network must not hang a read; past this, the read uses what is on disk.
+REFRESH_TIMEOUT = 15.0
+_last_refresh: dict[Path, float] = {}
+
+
+def _on_main(library_root: Path) -> bool:
+    """True when the library is a git clone with `main` checked out."""
+    proc = _run(["git", "symbolic-ref", "--quiet", "--short", "HEAD"], library_root)
+    return proc.returncode == 0 and proc.stdout.strip() == "main"
+
+
+def refresh(library_root: Path) -> bool:
+    """Fast-forward the library to origin/main, at most once per REFRESH_INTERVAL.
+
+    Best effort: the server's clone is only pulled on install, so without this it
+    drifts behind every push made elsewhere. A failed pull (offline, diverged, or
+    local edits in the way) is not an error; the read goes ahead on what is on
+    disk, and save_changes reconciles before it pushes. Returns True if it pulled.
+    """
+    now = time.monotonic()
+    key = library_root.resolve()
+    if now - _last_refresh.get(key, float("-inf")) < REFRESH_INTERVAL:
+        return False
+    _last_refresh[key] = now
+    if not _on_main(library_root):
+        return False
+    try:
+        pull = subprocess.run(
+            ["git", "pull", "--ff-only", "origin", "main"], cwd=str(library_root),
+            capture_output=True, text=True, check=False, timeout=REFRESH_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False
+    return pull.returncode == 0
+
+
+def _ahead_of_origin(library_root: Path) -> int:
+    proc = _run(["git", "rev-list", "--count", "origin/main..HEAD"], library_root)
+    return int(proc.stdout.strip()) if proc.returncode == 0 else 0
+
+
 def save_changes(library_root: Path, message: str | None = None) -> SaveResult:
-    """Stage all changes, commit, push origin main. No-op if working tree clean."""
+    """Stage all changes, commit, rebase onto origin/main, push.
+
+    Also pushes commits left local by an earlier failed push, so one failure
+    doesn't strand them. No-op only when there is nothing to commit or push.
+    """
+    if not _on_main(library_root):
+        raise RuntimeError("save_changes only runs with `main` checked out; nothing was committed")
     pending = list_pending_changes(library_root)
-    if not pending:
+    commit_msg = ""
+    if pending:
+        add = _run(["git", "add", "-A"], library_root)
+        if add.returncode != 0:
+            raise RuntimeError(f"git add failed: {add.stderr.strip()}")
+
+        commit_msg = message or _autogenerate_message(pending)
+        commit = _run(["git", "commit", "-m", commit_msg], library_root)
+        if commit.returncode != 0:
+            raise RuntimeError(f"git commit failed: {commit.stderr.strip()}")
+
+    fetch = _run(["git", "fetch", "origin", "main"], library_root)
+    if fetch.returncode != 0:
+        raise RuntimeError(
+            f"git fetch failed (nothing pushed; commits stay local): {fetch.stderr.strip()}"
+        )
+    if not pending and _ahead_of_origin(library_root) == 0:
         return SaveResult(committed=False, pushed=False, pending=[])
 
-    add = _run(["git", "add", "-A"], library_root)
-    if add.returncode != 0:
-        raise RuntimeError(f"git add failed: {add.stderr.strip()}")
+    rebase = _run(["git", "rebase", "origin/main"], library_root)
+    if rebase.returncode != 0:
+        _run(["git", "rebase", "--abort"], library_root)
+        raise RuntimeError(
+            "these changes conflict with newer commits on origin/main; nothing was "
+            "pushed and the commits stay local. Resolve the conflict in the "
+            f"server's clone, then save again. git said: {rebase.stdout.strip()} "
+            f"{rebase.stderr.strip()}".strip()
+        )
 
-    commit_msg = message or _autogenerate_message(pending)
-    commit = _run(["git", "commit", "-m", commit_msg], library_root)
-    if commit.returncode != 0:
-        raise RuntimeError(f"git commit failed: {commit.stderr.strip()}")
-
-    sha_proc = _run(["git", "rev-parse", "--short", "HEAD"], library_root)
-    sha = sha_proc.stdout.strip()
+    sha = _run(["git", "rev-parse", "--short", "HEAD"], library_root).stdout.strip()
 
     push = _run(["git", "push", "origin", "main"], library_root)
     if push.returncode != 0:
@@ -74,5 +141,6 @@ def save_changes(library_root: Path, message: str | None = None) -> SaveResult:
             f"git push failed (commit {sha} stays local): {push.stderr.strip()}"
         )
     return SaveResult(
-        committed=True, pushed=True, commit_sha=sha, message=commit_msg, pending=pending
+        committed=bool(pending), pushed=True, commit_sha=sha, message=commit_msg,
+        pending=pending,
     )
