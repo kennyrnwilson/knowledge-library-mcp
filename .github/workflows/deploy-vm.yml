@@ -3,11 +3,35 @@ name: Deploy to ingress VM
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   repository_dispatch:
     types: [deploy-knowledge-library-mcp]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync deps
+        run: uv sync --extra dev
+      - name: Lint
+        run: uv run ruff check src tests scripts
+      - name: Test
+        run: uv run pytest -v
+      - name: Selftest
+        run: uv run python -m knowledge_library_mcp --selftest
+        env:
+          KNOWLEDGE_LIBRARY_ROOT: ${{ github.workspace }}/tests/fixtures/library
+
   deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, mac-mini]
     steps:
       - name: Wait for OrbStack

@@ -68,10 +68,11 @@ def _on_main(library_root: Path) -> bool:
 def refresh(library_root: Path) -> bool:
     """Fast-forward the library to origin/main, at most once per REFRESH_INTERVAL.
 
-    Best effort: the server's clone is only pulled on install, so without this it
-    drifts behind every push made elsewhere. A failed pull (offline, diverged, or
-    local edits in the way) is not an error; the read goes ahead on what is on
-    disk, and save_changes reconciles before it pushes. Returns True if it pulled.
+    Best effort. knowledge-library's sync-to-vm workflow pulls the clone on each
+    push, but only then, and its ff-only pull stalls once a local commit is left
+    unpushed. A failed pull here (offline, diverged, or local edits in the way)
+    is not an error; the read goes ahead on what is on disk, and save_changes
+    reconciles before it pushes. Returns True if it pulled.
     """
     now = time.monotonic()
     key = library_root.resolve()

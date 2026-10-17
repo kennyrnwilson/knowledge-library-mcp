@@ -5,22 +5,28 @@ MCP server exposing the knowledge-library (notes, guidance, projects, search, pl
 ## Run locally
 
 ```bash
-cd mcp-server
 uv sync --extra dev
-uv run python -m knowledge_library_mcp --selftest
+KNOWLEDGE_LIBRARY_ROOT=~/code/knowledge-library uv run python -m knowledge_library_mcp --selftest
 ```
 
 ## Run tests
 
 ```bash
 uv run pytest
+uv run ruff check src tests scripts
 ```
+
+The tests need `ripgrep` (`rg`) on `PATH`. They run against the fixture library in
+`tests/fixtures/library/`, not against real notes.
 
 ## Configuration
 
 The server resolves the library root by:
 1. `KNOWLEDGE_LIBRARY_ROOT` environment variable, if set.
-2. The parent directory of the `mcp-server/` directory (the default in production).
+2. Otherwise, the directory three levels above `server.py`. That default dates
+   from when this code lived in `knowledge-library/mcp-server/`; outside that
+   layout, set the variable. The ingress VM sets it to its clone,
+   `/opt/knowledge-library`.
 
 ## Tools exposed
 
@@ -43,8 +49,10 @@ Write tools (`create_note`, `update_note`, `append_fleeting`, `write_teach_file`
 
 ## Staying in step with `main`
 
-The server's clone is only pulled when it is installed, so on its own it falls
-behind every push made elsewhere. Two things keep it current, and both act only
+knowledge-library's `sync-to-vm.yml` fast-forwards the server's clone on every
+push to `main`. That isn't enough on its own: it runs only on a push, and its
+`--ff-only` pull stops working once the clone holds a commit that an earlier
+`save_changes` failed to push. Two things here cover the gaps, and both act only
 when `main` is checked out:
 
 - **Before each tool call**, `refresh` runs `git pull --ff-only origin main`, at
@@ -57,12 +65,13 @@ when `main` is checked out:
 
 ## Deployment
 
-This directory is the source of truth. On every push to `main` that touches
-`mcp-server/`, `.github/workflows/sync-to-public.yml` mirrors it into the public
-repo `kennyrnwilson/knowledge-library-mcp`. A push to that public repo runs its
-`deploy-vm.yml` on the Mac Mini self-hosted runner, which pulls, runs `uv sync`,
-and restarts the `knowledge-library-mcp` systemd unit inside the ingress VM
-(port 5103, behind `gateway.kennyrnwilson.com/mcp/knowledge`).
+This repo is the source of truth for the server. (It used to be a mirror of
+`knowledge-library/mcp-server/`; that subtree and its sync were removed on
+2026-10-17.) The knowledge content stays in the private `knowledge-library` repo.
 
-The knowledge content itself never leaves the private repo — only this
-`mcp-server/` subtree is mirrored.
+`.github/workflows/deploy-vm.yml` runs lint, the tests and the selftest on every
+pull request and push. On a push to `main`, it then runs personal-portal's
+`deploy/ingress-vm/knowledge-library-mcp.sh install` inside the ingress VM, on
+the Mac Mini's self-hosted runner. That installs dependencies pinned by `uv.lock`
+and restarts the `knowledge-library-mcp` systemd unit (port 5103, behind
+`gateway.kennyrnwilson.com/mcp/knowledge`).
