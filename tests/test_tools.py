@@ -125,6 +125,20 @@ async def test_append_fleeting(server, temp_library):
 
 
 @pytest.mark.asyncio
+async def test_add_quote(server, temp_library):
+    res = _extract(await server.call_tool(
+        "add_quote",
+        {"source_title": "A Talk", "author": "A Speaker", "text": "Say it plainly.",
+         "why": "The house style in three words.", "category": "articles",
+         "themes": ["writing"]},
+    ))
+    assert res == {"path": "02-literature-notes/articles/a-talk.md", "created": True}
+    note = (temp_library / res["path"]).read_text()
+    assert '> "Say it plainly."' in note
+    assert "#quote/writing" in note
+
+
+@pytest.mark.asyncio
 async def test_list_pending_changes(git_server, temp_git_library):
     (temp_git_library / "01-fleeting-notes" / "via-tool.md").write_text("x")
     res = _extract(await git_server.call_tool("list_pending_changes", {}))

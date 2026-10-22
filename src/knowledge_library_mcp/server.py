@@ -18,6 +18,7 @@ from knowledge_library_mcp.notes import (
     list_permanent_notes as _list_permanent,
     list_projects as _list_projects,
 )
+from knowledge_library_mcp.quotes import add_quote as _add_quote
 from knowledge_library_mcp.search import search_notes as _search
 from knowledge_library_mcp.teach import (
     edit_teach_file as _edit_teach_file,
@@ -122,6 +123,32 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         """Append a timestamped block to today's `01-fleeting-notes/YYYY-MM-DD.md`. Lowest-friction capture."""
         _refresh(library_root)
         return _append_fleeting(library_root, content)
+
+    @mcp.tool()
+    def add_quote(
+        source_title: str,
+        author: str,
+        text: str,
+        why: str,
+        location: str = "",
+        category: str = "books",
+        themes: list[str] | None = None,
+        links: list[str] | None = None,
+    ) -> dict:
+        """File a quote in its source's literature note, `02-literature-notes/<category>/`.
+
+        Creates the note from the literature-summary template if none exists. Writes
+        the quote, a source line (author, title, location such as "ch. 11, p. 213"),
+        a "Why" line in the user's words, and links plus one `#quote/<theme>` tag per
+        theme. Ask the user why the quote mattered if they have not said.
+
+        For a book that has its own folder in book-library, use the book-library
+        server's `add_book_quote` instead: its notes live there.
+        """
+        _refresh(library_root)
+        return _add_quote(library_root, source_title=source_title, author=author, text=text,
+                          why=why, location=location, category=category, themes=themes,
+                          links=links)
 
     # ---- Teaching tools (the `teach` skill over MCP; filesystem only) ----------
 

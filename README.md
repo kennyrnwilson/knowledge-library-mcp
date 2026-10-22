@@ -45,7 +45,7 @@ never commit.
 
 ## Explicit-save model
 
-Write tools (`create_note`, `update_note`, `append_fleeting`, `write_teach_file`, `edit_teach_file`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
+Write tools (`create_note`, `update_note`, `append_fleeting`, `add_quote`, `write_teach_file`, `edit_teach_file`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").
 
 ## Staying in step with `main`
 
