@@ -90,6 +90,12 @@ async def test_get_guidance(server):
 
 
 @pytest.mark.asyncio
+async def test_list_fleeting(server):
+    res = _extract(await server.call_tool("list_fleeting", {}))
+    assert any(n["path"] == "01-fleeting-notes/topic-thought.md" for n in res)
+
+
+@pytest.mark.asyncio
 async def test_list_projects(server):
     res = _extract(await server.call_tool("list_projects", {}))
     assert any(p["slug"] == "sample-project" for p in res)

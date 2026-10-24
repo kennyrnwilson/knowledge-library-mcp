@@ -6,6 +6,7 @@ from knowledge_library_mcp.notes import (
     NoteNotFound,
     get_guidance,
     get_note,
+    list_fleeting,
     list_permanent_notes,
     list_projects,
 )
@@ -69,3 +70,16 @@ def test_get_guidance_empty_topic_raises(fixture_library):
 def test_get_guidance_finds_non_canonical_subdir(fixture_library):
     text = get_guidance(fixture_library, "manage-stress")
     assert "manage stress" in text.lower()
+
+
+def test_list_fleeting_lists_the_inbox(fixture_library):
+    notes = list_fleeting(fixture_library)
+    paths = {n["path"] for n in notes}
+    assert "01-fleeting-notes/topic-thought.md" in paths
+    assert all(p.startswith("01-fleeting-notes/") for p in paths)
+    note = next(n for n in notes if n["title"] == "topic-thought")
+    assert note["lines"] > 0 and note["first_line"]
+
+
+def test_list_fleeting_empty_when_no_inbox(tmp_path):
+    assert list_fleeting(tmp_path) == []

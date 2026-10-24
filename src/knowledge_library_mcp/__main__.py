@@ -48,6 +48,7 @@ def _selftest() -> int:
             await server.call_tool("search_notes", {"query": "the"})
             await server.call_tool("list_permanent_notes", {"area": areas[0]})
             await server.call_tool("list_projects", {})
+            await server.call_tool("list_fleeting", {})
             if "## Teaching Workspace" not in load_instructions():
                 print("selftest FAIL: teach_skill/SKILL.md did not load", file=sys.stderr)
                 return 1

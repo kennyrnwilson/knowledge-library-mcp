@@ -15,6 +15,7 @@ from knowledge_library_mcp.notes import (
     NoteNotFound,
     get_guidance as _get_guidance,
     get_note as _get_note,
+    list_fleeting as _list_fleeting,
     list_permanent_notes as _list_permanent,
     list_projects as _list_projects,
 )
@@ -86,6 +87,12 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
             return _get_guidance(library_root, topic)
         except NoteNotFound as e:
             raise ValueError(str(e)) from e
+
+    @mcp.tool()
+    def list_fleeting() -> list[dict]:
+        """List the inbox: every note under `01-fleeting-notes/`, with its line count and first line."""
+        _refresh(library_root)
+        return _list_fleeting(library_root)
 
     @mcp.tool()
     def list_projects() -> list[dict]:

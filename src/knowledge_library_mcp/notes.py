@@ -48,6 +48,24 @@ def list_permanent_notes(library_root: Path, area: str) -> list[dict]:
     return out
 
 
+def list_fleeting(library_root: Path) -> list[dict]:
+    """List the inbox: every note under `01-fleeting-notes/`, with its first line."""
+    base = library_root / "01-fleeting-notes"
+    if not base.is_dir():
+        return []
+    out: list[dict] = []
+    for md in sorted(base.rglob("*.md")):
+        lines = md.read_text().splitlines()
+        first = next((ln.strip() for ln in lines if ln.strip()), "")
+        out.append({
+            "path": md.relative_to(library_root).as_posix(),
+            "title": md.stem,
+            "lines": len(lines),
+            "first_line": first[:120],
+        })
+    return out
+
+
 def list_projects(library_root: Path) -> list[dict]:
     """List active projects under `05-projects/` (directories with a README.md)."""
     base = library_root / "05-projects"
