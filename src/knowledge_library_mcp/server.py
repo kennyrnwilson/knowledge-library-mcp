@@ -141,21 +141,27 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         category: str = "books",
         themes: list[str] | None = None,
         links: list[str] | None = None,
+        said_by: str = "",
     ) -> dict:
         """File a quote in its source's literature note, `02-literature-notes/<category>/`.
 
-        Creates the note from the literature-summary template if none exists. Writes
+        Creates the note if none exists, and links it from the folder's README. Writes
         the quote, a source line (author, title, location such as "ch. 11, p. 213"),
-        a "Why" line in the user's words, and links plus one `#quote/<theme>` tag per
-        theme. Ask the user why the quote mattered if they have not said.
+        a "Why" line and links plus one `#quote/<theme>` tag per theme. When the
+        source quotes someone else, put that person in `said_by`.
+
+        The "Why" and the themes are the user's. Pass the user's words exactly, with
+        no corrections. If the user has not given them, or has sent a placeholder
+        such as "<your own sentence>", ask; never write them yourself.
 
         For a book that has its own folder in book-library, use the book-library
-        server's `add_book_quote` instead: its notes live there.
+        server's `add_book_quote` instead: its notes live there. Do not say that a
+        book contains a quote unless a search of that book shows it.
         """
         _refresh(library_root)
         return _add_quote(library_root, source_title=source_title, author=author, text=text,
                           why=why, location=location, category=category, themes=themes,
-                          links=links)
+                          links=links, said_by=said_by)
 
     # ---- Teaching tools (the `teach` skill over MCP; filesystem only) ----------
 
@@ -224,7 +230,8 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
             "pushed": result.pushed,
             "commit_sha": result.commit_sha,
             "message": result.message,
-            "pending_count": len(result.pending),
+            # What is still uncommitted after the save, not what the save committed.
+            "pending_count": len(_list_pending(library_root)),
         }
 
     return mcp

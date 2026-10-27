@@ -138,7 +138,8 @@ async def test_add_quote(server, temp_library):
          "why": "The house style in three words.", "category": "articles",
          "themes": ["writing"]},
     ))
-    assert res == {"path": "02-literature-notes/articles/a-talk.md", "created": True}
+    assert res == {"path": "02-literature-notes/articles/a-talk.md", "created": True,
+                   "linked_from": None}
     note = (temp_library / res["path"]).read_text()
     assert '> "Say it plainly."' in note
     assert "#quote/writing" in note
@@ -160,6 +161,7 @@ async def test_save_changes(git_server, temp_git_library):
     assert res["committed"] is True
     assert res["pushed"] is True
     assert res["commit_sha"]
+    assert res["pending_count"] == 0
 
 
 @pytest.mark.asyncio

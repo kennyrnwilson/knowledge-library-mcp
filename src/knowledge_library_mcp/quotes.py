@@ -1,6 +1,6 @@
 """add_quote: file a quote in its source's literature note, in the four-part shape.
 
-The shape is the one in knowledge-library's `.templates/literature-summary.md`:
+The shape is the quotes section of knowledge-library's `.templates/literature-summary.md`:
 
     > "The quote."
     > — Author, *Title*, location
@@ -21,16 +21,17 @@ from pathlib import Path
 from knowledge_library_mcp.writer import _safe_join, slugify
 
 LITERATURE_DIR = "02-literature-notes"
-TEMPLATE = ".templates/literature-summary.md"
 QUOTES_HEADING = "## 💬 Quotes & Highlights"
+NOTES_HEADING = "## Notes"
 
-# Used when the library has no template, as in the test fixtures.
-_FALLBACK_TEMPLATE = """# [Book/Article Title]
+# A new note holds only what a quote fills in. The full literature-summary
+# template would leave its placeholders (status, rating, takeaways) unfilled.
+_NEW_NOTE = """# {title}
 
 ← [Back to Parent](./README.md)
 
-**Author/Creator:** Name(s)
-**Source Type:** Book | Article | Course | Video | Podcast
+**Author/Creator:** {author}
+**Source Type:** {source_type}
 
 ## 💬 Quotes & Highlights
 
@@ -38,8 +39,8 @@ _FALLBACK_TEMPLATE = """# [Book/Article Title]
 
 **Tags:** #literature
 
-*Created: YYYY-MM-DD*
-*Last Updated: YYYY-MM-DD*
+*Created: {today}*
+*Last Updated: {today}*
 """
 
 _SOURCE_TYPES = {
@@ -50,6 +51,9 @@ _SOURCE_TYPES = {
 
 _QUOTES_SECTION = re.compile(r"^## .*Quotes & Highlights.*$", re.MULTILINE)
 _LAST_UPDATED = re.compile(r"^\*Last [Uu]pdated: [^*]*\*$", re.MULTILINE)
+_SECTION_END = re.compile(r"^(## |---$)", re.MULTILINE)
+# A "why" such as "<your own sentence>": a template the user sent back unfilled.
+_PLACEHOLDER = re.compile(r"<[^>]*>")
 
 
 def format_quote(
@@ -60,14 +64,23 @@ def format_quote(
     why: str,
     themes: list[str] | None = None,
     links: list[str] | None = None,
+    said_by: str = "",
 ) -> str:
-    """Return one quote in the four-part shape, without surrounding blank lines."""
+    """Return one quote in the four-part shape, without surrounding blank lines.
+
+    `said_by` names the speaker when the source quotes someone else: the source
+    line then reads "— Speaker, quoted in Author, *Title*".
+    """
     text = text.strip().strip('"“”')
     if not text:
         raise ValueError("a quote needs its text")
     if not why.strip():
         raise ValueError("a quote needs a 'why': one line on why it mattered")
+    if _PLACEHOLDER.search(why):
+        raise ValueError("the 'why' is a placeholder; ask the user why the quote matters")
     source = f"— {author.strip()}, *{title.strip()}*"
+    if said_by.strip():
+        source = f"— {said_by.strip()}, quoted in {author.strip()}, *{title.strip()}*"
     if location.strip():
         source += f", {location.strip()}"
     quoted = "\n".join(f"> {line}" if line else ">" for line in f'"{text}"'.splitlines())
@@ -99,23 +112,28 @@ def insert_quote(note: str, block: str, today: str) -> str:
     return _LAST_UPDATED.sub(f"*Last Updated: {today}*", note)
 
 
-def _new_note(library_root: Path, category: str, title: str, author: str, today: str) -> str:
-    template_path = library_root / TEMPLATE
-    note = template_path.read_text() if template_path.is_file() else _FALLBACK_TEMPLATE
-    note = note.replace("[Book/Article Title]", title.strip(), 1)
-    note = note.replace("**Author/Creator:** Name(s)", f"**Author/Creator:** {author.strip()}", 1)
-    source_type = _SOURCE_TYPES.get(category.split("/")[0])
-    if source_type:
-        note = re.sub(r"^\*\*Source Type:\*\* .*$", f"**Source Type:** {source_type}", note,
-                      count=1, flags=re.MULTILINE)
-    note = note.replace("*Created: YYYY-MM-DD*", f"*Created: {today}*")
-    # Drop the template's example quotes: the new quote is the section's only content.
-    match = _QUOTES_SECTION.search(note)
-    if match:
-        end_match = re.compile(r"^(## |---$)", re.MULTILINE).search(note, match.end())
-        end = end_match.start() if end_match else len(note)
-        note = note[: match.end()] + "\n\n" + note[end:]
-    return note
+def _new_note(category: str, title: str, author: str, today: str) -> str:
+    source_type = _SOURCE_TYPES.get(category.split("/")[0], "Book | Article | Course")
+    return _NEW_NOTE.format(title=title.strip(), author=author.strip(),
+                            source_type=source_type, today=today)
+
+
+def link_from_readme(readme: str, title: str, filename: str, author: str, today: str) -> str:
+    """Add a link to a new note under the README's notes heading, adding one if missing."""
+    line = f"- [{title.strip()}](./{filename}) ({author.strip()})"
+    match = re.search(rf"^{re.escape(NOTES_HEADING)}$", readme, re.MULTILINE)
+    if match is None:
+        footer = readme.rfind("\n---\n")
+        head, tail = (readme[:footer], readme[footer:]) if footer != -1 else (readme, "\n")
+        readme = f"{head.rstrip()}\n\n{NOTES_HEADING}\n{tail}"
+        match = re.search(rf"^{re.escape(NOTES_HEADING)}$", readme, re.MULTILINE)
+    start = match.end()
+    end_match = _SECTION_END.search(readme, start)
+    end = end_match.start() if end_match else len(readme)
+    body = readme[start:end].rstrip()
+    new_body = f"{body}\n{line}\n\n" if body else f"\n\n{line}\n\n"
+    readme = readme[:start] + new_body + readme[end:]
+    return _LAST_UPDATED.sub(f"*Last Updated: {today}*", readme)
 
 
 def add_quote(
@@ -128,12 +146,14 @@ def add_quote(
     category: str = "books",
     themes: list[str] | None = None,
     links: list[str] | None = None,
+    said_by: str = "",
     today: str | None = None,
 ) -> dict:
     """File a quote in `02-literature-notes/<category>/<slug of source_title>.md`.
 
-    Creates the note from the literature-summary template if it does not exist.
-    Returns the note's relative path and whether it was created.
+    Creates the note if it does not exist, and links it from the folder's
+    README.md. Returns the note's relative path, whether it was created, and the
+    README it was linked from, if any.
     """
     today = today or date.today().isoformat()
     sub = category.strip().strip("/")
@@ -141,9 +161,15 @@ def add_quote(
         raise ValueError("category is required, for example 'books' or 'articles'")
     rel = Path(LITERATURE_DIR) / sub / f"{slugify(source_title)}.md"
     full = _safe_join(library_root, str(rel))
-    block = format_quote(text, author, source_title, location, why, themes, links)
+    block = format_quote(text, author, source_title, location, why, themes, links, said_by)
     created = not full.is_file()
-    note = _new_note(library_root, sub, source_title, author, today) if created else full.read_text()
+    note = _new_note(sub, source_title, author, today) if created else full.read_text()
     full.parent.mkdir(parents=True, exist_ok=True)
     full.write_text(insert_quote(note, block, today))
-    return {"path": rel.as_posix(), "created": created}
+    result = {"path": rel.as_posix(), "created": created, "linked_from": None}
+    readme = full.parent / "README.md"
+    if created and readme.is_file():
+        readme.write_text(link_from_readme(readme.read_text(), source_title, full.name,
+                                           author, today))
+        result["linked_from"] = (rel.parent / "README.md").as_posix()
+    return result
