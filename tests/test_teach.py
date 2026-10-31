@@ -65,7 +65,7 @@ def test_teach_start_on_new_workspace(temp_library):
     res = teach_start(temp_library, "sample-project")
     assert res["exists"] is False
     assert res["workspace"] == "05-projects/sample-project/teach"
-    assert res["state"] == {"MISSION.md": None, "RESOURCES.md": None, "NOTES.md": None}
+    assert res["state"] == dict.fromkeys(("MISSION.md", "RESOURCES.md", "NOTES.md", "PLAN.md"))
     assert res["lessons"] == [] and res["assets"] == []
     assert "## Teaching Workspace" in res["instructions"]
 
@@ -149,3 +149,83 @@ def test_edit_teach_file_requires_exactly_one_match(temp_library, workspace):
         edit_teach_file(temp_library, "sample-project", "NOTES.md", "a", "b")
     with pytest.raises(TeachError, match="does not exist"):
         edit_teach_file(temp_library, "sample-project", "RESOURCES.md", "a", "b")
+
+
+# ---- save_lesson_plan --------------------------------------------------------
+
+from knowledge_library_mcp.teach import save_lesson_plan, upsert_plan_section  # noqa: E402
+
+
+@pytest.fixture
+def template(temp_library: Path) -> Path:
+    assets = temp_library / "05-projects" / "use-the-system" / "teach" / "assets"
+    assets.mkdir(parents=True)
+    (assets / "course.css").write_text("body {}")
+    (assets / "recall.js").write_text("// recall")
+    index = temp_library / "05-projects" / "README.md"
+    index.write_text(
+        "# Projects\n\n## Active Projects\n\n| Project | Status |\n|---|---|\n"
+        "| [Explore](./explore/README.md) | Ongoing |\n\n## Completed Projects\n"
+    )
+    return assets
+
+
+def _save(lib: Path, **kw):
+    args = dict(book_slug="make-it-stick", title="Make It Stick", author="Brown",
+                section="Chapter 2: To learn, retrieve", plan="1. **Retrieve** — do it.",
+                why="Study for the exam.", today="2026-10-31")
+    return save_lesson_plan(lib, **{**args, **kw})
+
+
+def test_first_plan_creates_the_book_workspace(temp_library: Path, template: Path):
+    r = _save(temp_library)
+    ws = temp_library / "05-projects" / "make-it-stick" / "teach"
+    assert r["created"] is True
+    assert r["plan_url"] == "/knowledge/projects/make-it-stick/teach/plan/"
+    assert "book-library/make-it-stick/README.md" in (ws.parent / "README.md").read_text()
+    assert "Study for the exam." in (ws / "MISSION.md").read_text()
+    assert (ws / "assets" / "recall.js").read_text() == "// recall"
+    plan = (ws / "PLAN.md").read_text()
+    assert "## Chapter 2: To learn, retrieve\n\n1. **Retrieve** — do it." in plan
+    index = (temp_library / "05-projects" / "README.md").read_text()
+    assert "| [Make It Stick](./make-it-stick/README.md) | In progress |" in index
+    assert index.index("make-it-stick") < index.index("## Completed Projects")
+    assert "05-projects/README.md" in r["paths"]
+    assert "05-projects/make-it-stick/teach/assets/recall.js" in r["paths"]
+
+
+def test_saving_a_section_again_replaces_it_and_keeps_the_rest(temp_library, template):
+    _save(temp_library)
+    _save(temp_library, section="Chapter 3: Mix up", plan="1. Interleave.", why="")
+    r = _save(temp_library, plan="1. Retrieve, revised.", why="")
+    plan = (temp_library / r["plan"]).read_text()
+    assert r["created"] is False
+    assert r["paths"] == ["05-projects/make-it-stick/teach/PLAN.md"]
+    assert "Retrieve, revised." in plan and "— do it." not in plan
+    assert plan.index("Chapter 2") < plan.index("Chapter 3")
+    assert plan.count("## Chapter 2") == 1
+
+
+def test_new_book_course_needs_why(temp_library, template):
+    with pytest.raises(TeachError, match="why"):
+        _save(temp_library, why="")
+
+
+def test_refuses_a_project_about_something_else(temp_library, template):
+    other = temp_library / "05-projects" / "make-it-stick"
+    other.mkdir(parents=True)
+    (other / "README.md").write_text("# Make it stick: a glue project\n")
+    with pytest.raises(TeachError, match="not about this book"):
+        _save(temp_library)
+
+
+def test_plan_is_part_of_the_workspace_state(temp_library, template):
+    _save(temp_library)
+    state = teach_start(temp_library, "make-it-stick")["state"]
+    assert "Chapter 2" in state["PLAN.md"]
+    write_teach_file(temp_library, "make-it-stick", "PLAN.md", "# edited\n")
+
+
+def test_upsert_section_appends_when_missing():
+    out = upsert_plan_section("# Plan\n", "Whole book", "1. A.")
+    assert out == "# Plan\n\n## Whole book\n\n1. A.\n"

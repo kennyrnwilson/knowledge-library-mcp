@@ -43,6 +43,32 @@ plus the workspace's state. The write tools accept `.html`, `.css`, `.js`, `.svg
 and `.md` files inside the workspace only, and like the other write tools they
 never commit.
 
+### Book lesson plans
+
+`save_lesson_plan` is how the
+[reading app](https://github.com/kennyrnwilson/reading-app) turns a book into a
+course. It writes one section of `05-projects/<book-slug>/teach/PLAN.md`: a
+`## <chapter>` section for a chapter, or `## Whole book`. Saving the same
+section again replaces it, and the other sections stay.
+
+The first call for a book creates the course:
+
+- the project `README.md`, linked to the book in book-library, and a row in
+  `05-projects/README.md`;
+- `teach/MISSION.md` from the reader's `why`, which that first call requires;
+- `teach/RESOURCES.md`, with the book and its reading-app link, and
+  `teach/NOTES.md`;
+- `teach/assets/`, copied from the `use-the-system` workspace, so lessons get
+  the course stylesheet, the quiz and the Recall marking.
+
+A project of the same name that does not link to the book is refused. The tool
+returns every path it wrote, which the caller passes to `save_changes`.
+
+`PLAN.md` is a state file like `MISSION.md`: `teach_start` returns it, and the
+chat preamble tells the teacher to write the first lesson in the plan that is
+not yet a link, then link it. So "teach me the next lesson in the
+`<book-slug>` project" works through a book from its plan.
+
 ## Explicit-save model
 
 Write tools (`create_note`, `update_note`, `append_fleeting`, `add_quote`, `write_teach_file`, `edit_teach_file`) only touch disk. They never commit. The `save_changes` tool stages, commits, and pushes. The LLM must only call `save_changes` when the user explicitly approves ("save it", "commit that", "looks good").

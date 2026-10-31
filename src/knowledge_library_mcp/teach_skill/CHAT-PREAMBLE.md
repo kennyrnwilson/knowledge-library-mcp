@@ -37,3 +37,8 @@ Where the skill and these rules differ, these rules win:
    memory alone, as the skill says.
 6. **Cost.** Write each file once, then use `edit_teach_file` for corrections.
    Read an existing lesson with `get_lesson` only when you need its content.
+7. **A lesson plan.** If the workspace state has a `PLAN.md`, it is a book's
+   lesson plan, drafted in the reading app. Teach the first lesson in it that is
+   not yet a link, from the book's own text and chapter summaries. Use the
+   section's "Read it" link as the primary source. After the user saves the
+   lesson, turn its line in `PLAN.md` into a link to it with `edit_teach_file`.

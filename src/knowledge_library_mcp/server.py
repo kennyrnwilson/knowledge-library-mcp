@@ -27,6 +27,7 @@ from knowledge_library_mcp.teach import (
     edit_teach_file as _edit_teach_file,
     get_lesson as _get_lesson,
     list_lessons as _list_lessons,
+    save_lesson_plan as _save_lesson_plan,
     teach_start as _teach_start,
     write_teach_file as _write_teach_file,
 )
@@ -229,7 +230,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
     def write_teach_file(project: str, path: str, content: str) -> dict:
         """Create or replace a file in a project's teaching workspace. Does not commit.
 
-        path is relative to the workspace: MISSION.md, RESOURCES.md, NOTES.md, or a file
+        path is relative to the workspace: MISSION.md, RESOURCES.md, NOTES.md, PLAN.md, or a file
         under lessons/, reference/, learning-records/ or assets/. Allowed types: .html,
         .css, .js, .svg, .md. Returns the library path and the published URL.
         """
@@ -244,6 +245,29 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         """
         _refresh(library_root)
         return _edit_teach_file(library_root, project, path, old, new)
+
+    @mcp.tool()
+    def save_lesson_plan(
+        book_slug: str,
+        title: str,
+        section: str,
+        plan: str,
+        author: str = "",
+        why: str = "",
+    ) -> dict:
+        """Write one section of a book's lesson plan. Does not commit.
+
+        The plan is `05-projects/<book_slug>/teach/PLAN.md`, one `## section` per
+        chapter (or one for the whole book); saving a section again replaces it.
+        The first call creates the project: its README, a row in the projects
+        index, and a teaching workspace whose MISSION.md says `why` (required
+        then), with the template workspace's components. Returns every path
+        written, for `save_changes`, and the plan's published URL. The reading
+        app calls this; teach the lessons with `teach_start(book_slug)`.
+        """
+        _refresh(library_root)
+        return _save_lesson_plan(library_root, book_slug=book_slug, title=title,
+                                 author=author, section=section, plan=plan, why=why)
 
     # ---- Git tools (explicit-save model) ---------------------------------------
 
