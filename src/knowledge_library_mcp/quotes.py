@@ -65,11 +65,13 @@ def format_quote(
     themes: list[str] | None = None,
     links: list[str] | None = None,
     said_by: str = "",
+    anchor: str = "",
 ) -> str:
     """Return one quote in the four-part shape, without surrounding blank lines.
 
     `said_by` names the speaker when the source quotes someone else: the source
-    line then reads "— Speaker, quoted in Author, *Title*".
+    line then reads "— Speaker, quoted in Author, *Title*". `anchor`, an EPUB CFI
+    from the reading app, is kept as a trailing HTML comment.
     """
     text = text.strip().strip('"“”')
     if not text:
@@ -89,7 +91,17 @@ def format_quote(
     lines = [quoted, f"> {source}", "", f"- **Why:** {why.strip()}"]
     if link_parts:
         lines.append(f"- **Links:** {' · '.join(link_parts)}")
+    if anchor.strip():
+        lines.append(anchor_comment(anchor))
     return "\n".join(lines)
+
+
+def anchor_comment(anchor: str) -> str:
+    """The HTML comment that records where in an EPUB a passage is."""
+    anchor = anchor.strip()
+    if "--" in anchor or "\n" in anchor:
+        raise ValueError("an anchor cannot contain '--' or a line break")
+    return f"<!-- anchor: {anchor} -->"
 
 
 def insert_quote(note: str, block: str, today: str) -> str:
@@ -148,6 +160,7 @@ def add_quote(
     links: list[str] | None = None,
     said_by: str = "",
     today: str | None = None,
+    anchor: str = "",
 ) -> dict:
     """File a quote in `02-literature-notes/<category>/<slug of source_title>.md`.
 
@@ -161,7 +174,8 @@ def add_quote(
         raise ValueError("category is required, for example 'books' or 'articles'")
     rel = Path(LITERATURE_DIR) / sub / f"{slugify(source_title)}.md"
     full = _safe_join(library_root, str(rel))
-    block = format_quote(text, author, source_title, location, why, themes, links, said_by)
+    block = format_quote(text, author, source_title, location, why, themes, links, said_by,
+                         anchor)
     created = not full.is_file()
     note = _new_note(sub, source_title, author, today) if created else full.read_text()
     full.parent.mkdir(parents=True, exist_ok=True)

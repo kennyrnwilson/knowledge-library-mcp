@@ -20,6 +20,8 @@ from knowledge_library_mcp.notes import (
     list_projects as _list_projects,
 )
 from knowledge_library_mcp.quotes import add_quote as _add_quote
+from knowledge_library_mcp.reading import add_literature_section as _add_literature_section
+from knowledge_library_mcp.reading import source_annotations as _source_annotations
 from knowledge_library_mcp.search import search_notes as _search
 from knowledge_library_mcp.teach import (
     edit_teach_file as _edit_teach_file,
@@ -126,10 +128,10 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
             raise ValueError(str(e)) from e
 
     @mcp.tool()
-    def append_fleeting(content: str) -> str:
+    def append_fleeting(content: str, anchor: str = "") -> str:
         """Append a timestamped block to today's `01-fleeting-notes/YYYY-MM-DD.md`. Lowest-friction capture."""
         _refresh(library_root)
-        return _append_fleeting(library_root, content)
+        return _append_fleeting(library_root, content, anchor=anchor)
 
     @mcp.tool()
     def add_quote(
@@ -142,6 +144,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         themes: list[str] | None = None,
         links: list[str] | None = None,
         said_by: str = "",
+        anchor: str = "",
     ) -> dict:
         """File a quote in its source's literature note, `02-literature-notes/<category>/`.
 
@@ -161,7 +164,41 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         _refresh(library_root)
         return _add_quote(library_root, source_title=source_title, author=author, text=text,
                           why=why, location=location, category=category, themes=themes,
-                          links=links, said_by=said_by)
+                          links=links, said_by=said_by, anchor=anchor)
+
+    @mcp.tool()
+    def add_literature_section(
+        book_slug: str,
+        title: str,
+        author: str,
+        text: str,
+        location: str = "",
+        passage: str = "",
+        anchor: str = "",
+    ) -> dict:
+        """Add a note in the user's own words to a book's literature note.
+
+        The note is `02-literature-notes/books/<book_slug>.md`, created from the
+        literature-summary template if missing; the section goes under its
+        reading notes, headed by `location` (such as "ch. 3") and today's date,
+        after the `passage` it is about if given. `book_slug` is the book's
+        folder name in book-library. `anchor` is an EPUB CFI from the reading app.
+        """
+        _refresh(library_root)
+        return _add_literature_section(library_root, book_slug=book_slug, title=title,
+                                       author=author, text=text, location=location,
+                                       passage=passage, anchor=anchor)
+
+    @mcp.tool()
+    def get_source_annotations(book_slug: str) -> dict:
+        """Return everything the knowledge library holds about one book.
+
+        The book's literature note's quotes and reading notes, and every
+        fleeting-note block that links to `book-library/<book_slug>/`, each with
+        its EPUB anchor where it has one.
+        """
+        _refresh(library_root)
+        return _source_annotations(library_root, book_slug)
 
     # ---- Teaching tools (the `teach` skill over MCP; filesystem only) ----------
 
@@ -217,14 +254,17 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
         return _list_pending(library_root)
 
     @mcp.tool()
-    def save_changes(message: str | None = None) -> dict:
-        """Stage all changes, commit, push origin main.
+    def save_changes(message: str | None = None, paths: list[str] | None = None) -> dict:
+        """Stage changes, commit, push origin main.
+
+        With `paths` (library-relative), only changes under them are committed
+        and other drafts stay on disk.
 
         ONLY call this tool when the user has explicitly approved the change
         ("save it", "commit that", "looks good, push it"). Drafts iterated in
         chat without explicit approval should remain uncommitted on disk.
         """
-        result = _save_changes(library_root, message=message)
+        result = _save_changes(library_root, message=message, paths=paths)
         return {
             "committed": result.committed,
             "pushed": result.pushed,

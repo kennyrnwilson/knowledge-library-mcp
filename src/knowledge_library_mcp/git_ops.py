@@ -96,23 +96,38 @@ def _ahead_of_origin(library_root: Path) -> int:
     return int(proc.stdout.strip()) if proc.returncode == 0 else 0
 
 
-def save_changes(library_root: Path, message: str | None = None) -> SaveResult:
-    """Stage all changes, commit, rebase onto origin/main, push.
+def _in_paths(path: str, paths: list[str]) -> bool:
+    """True if a pending path is one of `paths`, under one, or an untracked folder holding one."""
+    return any(
+        path == p or path.startswith(p.rstrip("/") + "/") or (path.endswith("/") and p.startswith(path))
+        for p in paths
+    )
 
-    Also pushes commits left local by an earlier failed push, so one failure
-    doesn't strand them. No-op only when there is nothing to commit or push.
+
+def save_changes(
+    library_root: Path, message: str | None = None, paths: list[str] | None = None
+) -> SaveResult:
+    """Stage changes, commit, rebase onto origin/main, push.
+
+    With `paths`, only changes under those paths are committed; other pending
+    changes stay uncommitted on disk. Also pushes commits left local by an
+    earlier failed push, so one failure doesn't strand them. No-op only when
+    there is nothing to commit or push.
     """
     if not _on_main(library_root):
         raise RuntimeError("save_changes only runs with `main` checked out; nothing was committed")
     pending = list_pending_changes(library_root)
+    if paths:
+        pending = [p for p in pending if _in_paths(p["path"], paths)]
+    scope = ["--", *paths] if paths else []
     commit_msg = ""
     if pending:
-        add = _run(["git", "add", "-A"], library_root)
+        add = _run(["git", "add", "-A", *scope], library_root)
         if add.returncode != 0:
             raise RuntimeError(f"git add failed: {add.stderr.strip()}")
 
         commit_msg = message or _autogenerate_message(pending)
-        commit = _run(["git", "commit", "-m", commit_msg], library_root)
+        commit = _run(["git", "commit", "-m", commit_msg, *scope], library_root)
         if commit.returncode != 0:
             raise RuntimeError(f"git commit failed: {commit.stderr.strip()}")
 
@@ -124,7 +139,7 @@ def save_changes(library_root: Path, message: str | None = None) -> SaveResult:
     if not pending and _ahead_of_origin(library_root) == 0:
         return SaveResult(committed=False, pushed=False, pending=[])
 
-    rebase = _run(["git", "rebase", "origin/main"], library_root)
+    rebase = _run(["git", "rebase", "--autostash", "origin/main"], library_root)
     if rebase.returncode != 0:
         _run(["git", "rebase", "--abort"], library_root)
         raise RuntimeError(

@@ -110,12 +110,17 @@ def update_note(library_root: Path, relative_path: str, content: str) -> str:
     return relative_path
 
 
-def append_fleeting(library_root: Path, content: str) -> str:
+def append_fleeting(library_root: Path, content: str, anchor: str = "") -> str:
     """Append a timestamped block to today's `01-fleeting-notes/YYYY-MM-DD.md`.
 
     Creates the file with a `# YYYY-MM-DD` heading on first use of the day.
-    Each appended block is prefixed with `## HH:MM:SS`.
+    Each appended block is prefixed with `## HH:MM:SS`. `anchor`, an EPUB CFI
+    from the reading app, is kept as a trailing HTML comment.
     """
+    if anchor.strip():
+        from knowledge_library_mcp.quotes import anchor_comment
+
+        content = f"{content.rstrip()}\n\n{anchor_comment(anchor)}"
     # Use the timezone-aware datetime as returned by datetime.now(); we do not
     # convert via astimezone() because tests pin a fake "now" with a specific
     # tzinfo and expect that exact wall-clock time on disk.
