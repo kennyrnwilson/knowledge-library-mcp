@@ -290,6 +290,8 @@ def edit_teach_file(library_root: Path, project: str, path: str, old: str, new: 
 # A new book workspace copies its components from this one, so its lessons get
 # the shared stylesheet, the quiz and the Recall marking from the start.
 TEMPLATE_PROJECT = "use-the-system"
+# The reading app is on the public gateway, not on the portal site's host.
+READER_URL = "https://gateway.kennyrnwilson.com/read/"
 _PROJECTS_INDEX = "05-projects/README.md"
 _ACTIVE_TABLE = re.compile(r"^## Active Projects\n\n(?:\|.*\n)+", re.MULTILINE)
 
@@ -377,7 +379,7 @@ def _resources(title: str, author: str, book_slug: str) -> str:
 - [Book: *{title}*{by}](/books/{book_slug}/)
   The source for every lesson. Use for: everything. Fetch a chapter's summary
   with the book-library tool `get_chapter_summary`.
-- [Read it in the reading app](/read/#/book/{book_slug})
+- [Read it in the reading app]({READER_URL}#/book/{book_slug})
   The full text, with Kenny's highlights and notes.
 
 ## Wisdom (Communities)
