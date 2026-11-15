@@ -32,7 +32,9 @@ Where the skill and these rules differ, these rules win:
 4. **Links.** Link lessons, reference pages and assets with relative paths
    (`../assets/course.css`, `../reference/glossary.html`). Every lesson sets
    `<meta name="viewport" content="width=device-width, initial-scale=1">`: the
-   user often reads on a phone.
+   user often reads on a phone. Every lesson and reference sheet also loads
+   `<script src="../assets/theme.js"></script>` in its `<head>`, straight after
+   `course.css`, so that pressing `t` switches between light and dark.
 5. **Sources.** Use web search to find and check sources. Do not teach from
    memory alone, as the skill says.
 6. **Cost.** Write each file once, then use `edit_teach_file` for corrections.
