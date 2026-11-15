@@ -40,3 +40,12 @@ def test_search_area_unknown_raises(fixture_library):
     import pytest
     with pytest.raises(ValueError):
         search_notes(fixture_library, "anything", area="not-an-area")
+
+
+def test_search_finds_publication_html_and_skips_build_source(fixture_library):
+    hits = search_notes(fixture_library, "flutter kick")
+    assert [h.path for h in hits] == ["08-publications/swimming/backstroke.html"]
+
+
+def test_search_area_scope_skips_publications(fixture_library):
+    assert search_notes(fixture_library, "flutter kick", area="wellbeing") == []

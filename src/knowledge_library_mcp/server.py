@@ -60,7 +60,7 @@ def build_server(host: str = "127.0.0.1", port: int = 5103) -> FastMCP:
 
     @mcp.tool()
     def search_notes(query: str, area: str | None = None) -> list[dict]:
-        """Full-text search across the library. Optional `area` scopes to permanent/guidance for that area."""
+        """Full-text search across the library, including the HTML pages in 08-publications. Optional `area` scopes to permanent/guidance for that area."""
         _refresh(library_root)
         return [
             {"path": h.path, "line": h.line_number, "text": h.line}

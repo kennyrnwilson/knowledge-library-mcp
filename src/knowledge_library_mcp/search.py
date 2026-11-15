@@ -19,7 +19,12 @@ _DEFAULT_SEARCH_ROOTS = (
     "05-projects",
     "06-tracking",
     "07-archive",
+    "08-publications",
 )
+
+# Publications are HTML pages, so their HTML is searched too. Folders starting
+# with `_` hold a page's build source and are skipped, as the portal skips them.
+_PUBLICATIONS_ROOT = "08-publications"
 
 _RG_FALLBACK_PATHS = (
     "/opt/homebrew/bin/rg",
@@ -50,7 +55,7 @@ def search_notes(
     area: str | None = None,
     max_results: int = 50,
 ) -> list[SearchHit]:
-    """Ripgrep across markdown/txt files in the library."""
+    """Ripgrep across markdown/txt files in the library, and the HTML of publications."""
     if not query.strip():
         return []
     if area is not None and area not in AREAS:
@@ -82,6 +87,24 @@ def search_notes(
         "--", query,
         *[str(r) for r in roots],
     ]
+    hits = _run(cmd, library_root, max_results)
+
+    publications = library_root / _PUBLICATIONS_ROOT
+    if area is None and publications.is_dir() and len(hits) < max_results:
+        cmd = [
+            rg,
+            "--no-heading", "--line-number",
+            "--max-count", str(max_results),
+            "--glob", "*.html",
+            "--glob", "!_*",
+            "--", query,
+            str(publications),
+        ]
+        hits += _run(cmd, library_root, max_results - len(hits))
+    return hits
+
+
+def _run(cmd: list[str], library_root: Path, max_results: int) -> list[SearchHit]:
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode not in (0, 1):
         raise RuntimeError(f"ripgrep failed: {proc.stderr.strip()}")
